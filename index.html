@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Летающий Кот 🐱</title>
+<style>
+  body {
+    margin: 0;
+    overflow: hidden;
+    font-family: 'Comic Sans MS', sans-serif;
+    background: linear-gradient(to top, #1e3c72, #2a5298);
+  }
+  #gameCanvas {
+    display: block;
+    margin: auto;
+    background: #3a6ea5;
+    border: 5px solid #fff;
+    border-radius: 20px;
+    box-shadow: 0 0 20px #fff;
+  }
+  #menu {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: rgba(0,0,0,0.5);
+    flex-direction: column;
+  }
+  #menu button {
+    padding: 15px 30px;
+    margin: 10px;
+    font-size: 22px;
+    border-radius: 15px;
+    border: none;
+    cursor: pointer;
+    background: #00bfff;
+    color: white;
+    transition: 0.2s;
+  }
+  #menu button:hover {
+    background: #1ecfff;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="gameCanvas" width="600" height="400"></canvas>
+
+<div id="menu">
+  <h1 style="color:white; text-shadow:2px 2px #000;">Летающий Кот 🐱</h1>
+  <p style="color:white;">Выберите сложность:</p>
+  <button data-difficulty="easy">Легко</button>
+  <button data-difficulty="medium">Средне</button>
+  <button data-difficulty="hard">Сложно</button>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const menu = document.getElementById('menu');
+const buttons = menu.querySelectorAll('button');
+
+let catImg = new Image();
+catImg.src = 'https://w7.pngwing.com/pngs/453/663/png-transparent-cat-graphy-flight-cat-animals-cat-like-mammal-carnivoran.png';
+
+let coinImg = new Image();
+coinImg.src = 'https://free-png.ru/wp-content/uploads/2022/08/free-png.ru-53-370x370.png';
+
+let cat = { x: 50, y: 200, width: 50, height: 50, radius: 20, dy: 0 };
+let gravity = 0.5;
+let jump = -10;
+let obstacles = [];
+let coins = [];
+let obstacleFrequency = 90;
+let frame = 0;
+let score = 0;
+let coinsCollected = 0;
+let speed = 3;
+let gameRunning = false;
+
+function drawCat() {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cat.x + cat.width/2, cat.y + cat.height/2, cat.radius, 0, Math.PI * 2);
+    ctx.closePath();
+    ctx.clip();
+    ctx.drawImage(catImg, cat.x, cat.y, cat.width, cat.height);
+    ctx.restore();
+}
+
+function drawObstacles() {
+    ctx.fillStyle = "#ff4500";
+    obstacles.forEach(ob => ctx.fillRect(ob.x, ob.y, ob.width, ob.height));
+}
+
+function drawCoins() {
+    coins.forEach(function(coin) {
+        ctx.drawImage(coinImg, coin.x, coin.y, coin.radius*2, coin.radius*2);
+    });
+}
+
+function updateObstacles() {
+    if(frame % obstacleFrequency === 0) {
+        let height = Math.random() * 100 + 50;
+        let gap = 250 / 1.5; // уменьшенное пространство в 1,5 раза
+        obstacles.push({ x: 600, y: 0, width: 30, height: height });
+        obstacles.push({ x: 600, y: height + gap, width: 30, height: 400 - (height + gap) });
+        coins.push({ x: 600 + 5, y: height + gap/2 - 10, radius: 15 });
+    }
+    obstacles.forEach(ob => ob.x -= speed);
+    obstacles = obstacles.filter(ob => ob.x + ob.width > 0);
+    coins.forEach(c => c.x -= speed);
+    coins = coins.filter(c => c.x + c.radius*2 > 0);
+}
+
+function checkCollision() {
+    let catCenterX = cat.x + cat.width/2;
+    let catCenterY = cat.y + cat.height/2;
+
+    for(let ob of obstacles){
+        let closestX = Math.max(ob.x, Math.min(catCenterX, ob.x + ob.width));
+        let closestY = Math.max(ob.y, Math.min(catCenterY, ob.y + ob.height));
+        let dx = catCenterX - closestX;
+        let dy = catCenterY - closestY;
+        if(dx*dx + dy*dy < cat.radius * cat.radius){
+            resetGame();
+        }
+    }
+
+    for(let i=coins.length-1; i>=0; i--){
+        let coin = coins[i];
+        let dx = (cat.x + cat.width/2) - (coin.x + coin.radius);
+        let dy = (cat.y + cat.height/2) - (coin.y + coin.radius);
+        if(dx*dx + dy*dy < (cat.radius + coin.radius)*(cat.radius + coin.radius)){
+            coins.splice(i,1);
+            coinsCollected++;
+        }
+    }
+
+    if(cat.y + cat.height > canvas.height || cat.y < 0) resetGame();
+}
+
+function resetGame() {
+    cat.y = 200;
+    cat.dy = 0;
+    obstacles = [];
+    coins = [];
+    score = 0;
+    coinsCollected = 0;
+    frame = 0;
+    gameRunning = false;
+    menu.style.display = 'flex';
+}
+
+function drawScore() {
+    ctx.fillStyle = "white";
+    ctx.font = "20px Comic Sans MS";
+    ctx.fillText("Счёт: " + score, 10, 30);
+    ctx.fillText("Монеты: " + coinsCollected, 10, 60);
+}
+
+function update() {
+    if(!gameRunning) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    cat.dy += gravity;
+    cat.y += cat.dy;
+
+    drawCat();
+    updateObstacles();
+    drawObstacles();
+    drawCoins();
+    checkCollision();
+    
+    score++;
+    drawScore();
+
+    frame++;
+    requestAnimationFrame(update);
+}
+
+document.addEventListener('keydown', e => {
+    if(e.code === "Space" && gameRunning) cat.dy = jump;
+});
+
+buttons.forEach(btn => {
+    btn.addEventListener('click', () => {
+        const diff = btn.getAttribute('data-difficulty');
+        switch(diff){
+            case 'easy': speed = 2; obstacleFrequency = 120; break;
+            case 'medium': speed = 3; obstacleFrequency = 90; break;
+            case 'hard': speed = 5; obstacleFrequency = 60; break;
+        }
+        menu.style.display = 'none';
+        gameRunning = true;
+        update();
+    });
+});
+</script>
+
+</body>
+</html>
